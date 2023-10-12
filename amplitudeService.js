@@ -30,9 +30,12 @@ function parseNDJSON(jsonString) {
   return results;
 }
 
+const API_KEY = process.env.apiKey;
+const SECRET_KEY = process.env.secretKey;
+
 async function fetchEventsFromAmplitude(start, end) {
   const headers = {
-    Authorization: `Basic ${Buffer.from(`${apiKey}:${secretKey}`).toString(
+    Authorization: `Basic ${Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString(
       "base64"
     )}`,
   };
