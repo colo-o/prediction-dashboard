@@ -1,0 +1,1 @@
+echo "web: node index.js" > Procfile  # Replace [your-app-entry-point] with the name of your main file, e.g., "server.js" or "app.js".
