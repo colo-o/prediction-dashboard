@@ -1,38 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <link rel="stylesheet" href="/styles.css">
-  </head>
-  <body style="padding: 0 50px">
-    <h2>Fetch Events</h2>
-    <div style="margin-bottom: 25px;">
-      <label for="startDate">Start Date:</label>
-      <input type="date" id="startDate">
 
-      <label for="endDate">End Date:</label>
-      <input type="date" id="endDate">
+<head>
+  <link rel="stylesheet" href="/styles.css">
+</head>
 
-      <button style="margin-left: 15px;" id="fetchButton">Fetch Events</button>
-    </div>
-    <div class="search-filters">
-      <label>
-        SKU:
-        <input type="text" id="skuFilter" placeholder="Filter by SKU">
-      </label>
-      <label>
-        ID:
-        <input type="text" id="idFilter" placeholder="Filter by ID">
-      </label>
-      <label>
-        Model:
-        <input type="text" id="modelFilter" placeholder="Filter by Model">
-      </label>
-    </div>
-    <span id="loader" style="display:none; margin-bottom: 15px;"></span>
-    <div id="eventsTable"></div>
+<body style="padding: 0 50px">
+  <h2>Fetch Events</h2>
+  <div style="margin-bottom: 25px;">
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
 
-    <script>
-      document.getElementById('fetchButton').addEventListener('click', async function () {
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate">
+
+    <button style="margin-left: 15px;" id="fetchButton">Fetch Events</button>
+  </div>
+  <div class="search-filters">
+    <label>
+      SKU:
+      <input type="text" id="skuFilter" placeholder="Filter by SKU">
+    </label>
+    <label>
+      ID:
+      <input type="text" id="idFilter" placeholder="Filter by ID">
+    </label>
+    <label>
+      Model:
+      <input type="text" id="modelFilter" placeholder="Filter by Model">
+    </label>
+    <label>
+      Action:
+      <input type="text" id="actionFilter" placeholder="Filter by Action">
+    </label>
+  </div>
+  <span id="loader" style="display:none; margin-bottom: 15px;"></span>
+  <div id="button-cont"></div>
+  <table style="width:100%" id="eventsTable">
+    <thead>
+      <tr>
+        <th style="width: 20%;">ID</th>
+        <th style="width: 5%;">SKU</th>
+        <th style="width: 10%;">Kitchen</th>
+        <th style="width: 5%;">Model</th>
+        <th style="width: 10%;">Confidence</th>
+        <th style="width: 10%;">Model Response</th>
+        <th style="width: 5%;">Action</th>
+        <th style="width: 25%;">Order Image</th>
+        <!-- Add other headers as needed -->
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+
+  <script>
+    const loc = window.location;
+    let wsURL = (loc.protocol === 'https:') ? 'wss:' : 'ws:';
+    wsURL += '//' + loc.host + '/ws';
+    const ws = new WebSocket(wsURL);
+
+    ws.onopen = () => {
+      console.log('Connected to the WebSocket Server');
+      // Request data when the user clicks a button or some other event
+      document.getElementById("fetchButton").addEventListener("click", () => {
         loader.style.display = 'block';
 
         // Get the selected dates
@@ -48,65 +79,115 @@
         const formattedStartDate = `${startDate}T00`.replace(/-/g, '');
         const formattedEndDate = `${endDate}T23`.replace(/-/g, '');
 
-        // Generate a cache key based on the date range
-        const cacheKey = `events_${formattedStartDate}_${formattedEndDate}`;
-
-        // Check if the data is in cache
-        const cachedData = localStorage.getItem(cacheKey);
-
-        if (cachedData) {
-          // If data is in cache, use it
-          const container = document.getElementById('eventsTable');
-          container.innerHTML = cachedData;
-          loader.style.display = 'none'; // Hide loader
-        } else {
-          try {
-            // If data isn't in cache, make the fetch request
-            const response = await fetch(`/events?start=${formattedStartDate}&end=${formattedEndDate}`);
-            const data = await response.text();
-
-            // Cache the data
-            localStorage.setItem(cacheKey, data);
-
-            // Inject the returned HTML into a container in the home.ejs
-            const container = document.getElementById('eventsTable');
-            container.innerHTML = data;
-            bindExportFunctionality();
-
-          } catch (error) {
-            console.error('Error fetching events:', error);
-            alert('Error fetching events. Please try again later.');
-          } finally {
-            // Hide the loader
-            loader.style.display = 'none';
+        const message = {
+          type: 'fetchData',
+          content: {
+            start: formattedStartDate,
+            end: formattedEndDate
           }
         }
+
+        ws.send(JSON.stringify(message));
       });
+    };
 
-      function filterTable() {
-        const skuValue = document.getElementById('skuFilter').value.toLowerCase();
-        const idValue = document.getElementById('idFilter').value.toLowerCase();
-        const modelValue = document.getElementById('modelFilter').value.toLowerCase();
+    ws.onping = () => {
+      ws.pong();  // Send a pong in response to the ping
+    };
 
-        const rows = document.querySelectorAll('#eventsTable tbody tr');
+    ws.onmessage = (event) => {
+      const parsedEvent = JSON.parse(event.data);
+      if (parsedEvent.type === 'Events' && parsedEvent.content.length > 0) {
 
-        for (let row of rows) {
-          const skuCell = row.querySelector('.sku-cell').textContent.toLowerCase();
-          const idCell = row.querySelector('.id-cell').textContent.toLowerCase();
-          const modelCell = row.querySelector('.model-cell').textContent.toLowerCase();
+        const dataChunk = parsedEvent.content;
+        // Update table with received data chunk
+        updateTable(dataChunk);
+      }
+    };
 
-          if (skuCell.includes(skuValue) && idCell.includes(idValue) && modelCell.includes(modelValue)) {
-            row.style.display = "";
-          } else {
-            row.style.display = "none";
-          }
-        }
+    function updateTable(dataChunk) {
+      const tableBody = document.getElementById("eventsTable").getElementsByTagName("tbody")[0];
+
+      if (!document.getElementById('exportToCSV')) {
+        const container = document.getElementById("button-cont")
+        const button = document.createElement('button')
+        button.innerText = 'Descargar CSV'
+        button.id = 'exportToCSV'
+        container.appendChild(button)
       }
 
-      document.getElementById('skuFilter').addEventListener('input', filterTable);
-      document.getElementById('idFilter').addEventListener('input', filterTable);
-      document.getElementById('modelFilter').addEventListener('input', filterTable);
-    </script>
-    <script src="/js/exportCSV.js"></script>
-  </body>
+      dataChunk.forEach(event => {
+        bindExportFunctionality()
+        const newRow = tableBody.insertRow();
+
+        // Assuming event has fields: id, sku, kitchen, model, confidence, and modelResponse
+        const idCell = newRow.insertCell(0);
+        const skuCell = newRow.insertCell(1);
+        const kitchenCell = newRow.insertCell(2);
+        const modelCell = newRow.insertCell(3);
+        const confidenceCell = newRow.insertCell(4);
+        const modelResponseCell = newRow.insertCell(5);
+        const actionCell = newRow.insertCell(6);
+        const imgCell = newRow.insertCell(7);
+
+        const { event_properties } = event
+
+        idCell.textContent = event_properties.universalId;
+        idCell.classList.add('id-cell')
+        skuCell.textContent = event_properties.sku;
+        skuCell.classList.add('sku-cell')
+        kitchenCell.textContent = event_properties.deviceKitchenId;
+        modelCell.textContent = event_properties.model;
+        modelCell.classList.add('model-cell')
+        confidenceCell.textContent = event_properties.confidence;
+
+        // Assuming modelResponse is an array of strings; joining them with slashes
+        modelResponseCell.textContent = `trained: ${event_properties.trained} \n
+          qtModel: ${event_properties.quantityModel} \n
+          qtReqModel: ${event_properties.quantityRequested} \n
+          missing: ${event_properties.missing} \n`;
+
+        actionCell.textContent = event_properties.action
+        actionCell.classList.add('action-cell')
+
+        const img = document.createElement('img');
+        img.src = `https://images-kos.s3.amazonaws.com/photos_of_the_orders/prod/${event_properties.universalId.replace(/:/g, '_')}/${event_properties.universalId.replace(/:/g, '_')}.jpg`;  // assuming "event.imageURL" holds the URL to your image
+        img.alt = 'Event Image';   // add an appropriate alt text
+        img.style.width = '100%'; // optional: set a width (or any other style you want)
+        imgCell.appendChild(img);
+      });
+    }
+
+    function filterTable() {
+      const skuValue = document.getElementById('skuFilter').value.toLowerCase();
+      const idValue = document.getElementById('idFilter').value.toLowerCase();
+      const modelValue = document.getElementById('modelFilter').value.toLowerCase();
+      const actionValue = document.getElementById('actionFilter').value.toLowerCase();
+
+
+      const rows = document.querySelectorAll('#eventsTable tbody tr');
+
+      for (let row of rows) {
+        const skuCell = row.querySelector('.sku-cell').textContent.toLowerCase();
+        const idCell = row.querySelector('.id-cell').textContent.toLowerCase();
+        const modelCell = row.querySelector('.model-cell').textContent.toLowerCase();
+        const actionCell = row.querySelector('.action-cell').textContent.toLowerCase();
+
+
+        if (skuCell.includes(skuValue) && idCell.includes(idValue) && modelCell.includes(modelValue) && actionCell.includes(actionValue)) {
+          row.style.display = "";
+        } else {
+          row.style.display = "none";
+        }
+      }
+    }
+
+    document.getElementById('skuFilter').addEventListener('input', filterTable);
+    document.getElementById('idFilter').addEventListener('input', filterTable);
+    document.getElementById('modelFilter').addEventListener('input', filterTable);
+    document.getElementById('actionFilter').addEventListener('input', filterTable);
+  </script>
+  <script src="/js/exportCSV.js"></script>
+</body>
+
 </html>

@@ -16,7 +16,9 @@
     "koa": "^2.14.2",
     "koa-static": "^5.0.0",
     "koa-views": "^8.1.0",
+    "koa-websocket": "^7.0.0",
     "node-fetch": "^3.3.2",
-    "unzipper": "^0.10.14"
+    "unzipper": "^0.10.14",
+    "ws": "^8.14.2"
   }
 }

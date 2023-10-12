@@ -33,7 +33,7 @@ function parseNDJSON(jsonString) {
 const API_KEY = process.env.API_KEY;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-async function fetchEventsFromAmplitude(start, end) {
+async function fetchEventsFromAmplitude(ws, start, end) {
   const headers = {
     Authorization: `Basic ${Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString(
       "base64"
@@ -75,15 +75,18 @@ async function fetchEventsFromAmplitude(start, end) {
       }
 
       let parsedEvents;
+
       parsedEvents = parseNDJSON(gunzippedContent);
 
-      if (!parsedEvents || parsedEvents.length === 0) {
+      if (parsedEvents && parsedEvents.length > 0) {
+        ws.send(JSON.stringify({ content: parseNDJSON(gunzippedContent), type: 'Events' }))
+      } else {
         console.error("Error parsing JSON from:", fileName);
         entry.autodrain();
-        return;
       }
 
-      events = events.concat(parsedEvents);
+      ws.send(JSON.stringify({ content: parseNDJSON(gunzippedContent), type: 'Events' }))
+      //events = events.concat(parsedEvents);
       entry.autodrain();
     })
     .promise();
