@@ -37,6 +37,6 @@ router.get("/events", async (ctx) => {
 app.use(router.routes()).use(router.allowedMethods());
 
 const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(process.env.PORT || PORT, () => {
+  console.log(`Server is running on http://localhost:${process.env.PORT || PORT}`);
 });
