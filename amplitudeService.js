@@ -30,8 +30,8 @@ function parseNDJSON(jsonString) {
   return results;
 }
 
-const API_KEY = process.env.apiKey;
-const SECRET_KEY = process.env.secretKey;
+const API_KEY = process.env.API_KEY;
+const SECRET_KEY = process.env.SECRET_KEY;
 
 async function fetchEventsFromAmplitude(start, end) {
   const headers = {
