@@ -79,13 +79,23 @@ async function fetchEventsFromAmplitude(ws, start, end) {
       parsedEvents = parseNDJSON(gunzippedContent);
 
       if (parsedEvents && parsedEvents.length > 0) {
-        ws.send(JSON.stringify({ content: parseNDJSON(gunzippedContent), type: 'Events' }))
+        ws.send(
+          JSON.stringify({
+            content: parseNDJSON(gunzippedContent),
+            type: "Events",
+          })
+        );
       } else {
         console.error("Error parsing JSON from:", fileName);
         entry.autodrain();
       }
 
-      ws.send(JSON.stringify({ content: parseNDJSON(gunzippedContent), type: 'Events' }))
+      ws.send(
+        JSON.stringify({
+          content: parseNDJSON(gunzippedContent),
+          type: "Events",
+        })
+      );
       //events = events.concat(parsedEvents);
       entry.autodrain();
     })

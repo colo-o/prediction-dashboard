@@ -30,23 +30,30 @@
       <input type="text" id="modelFilter" placeholder="Filter by Model">
     </label>
     <label>
+      Missing:
+      <input type="text" id="missingFilter" placeholder="Filter by Model">
+    </label>
+    <label>
       Action:
       <input type="text" id="actionFilter" placeholder="Filter by Action">
     </label>
   </div>
   <span id="loader" style="display:none; margin-bottom: 15px;"></span>
-  <div id="button-cont"></div>
-  <table style="width:100%" id="eventsTable">
+
+  <button id="export-button" style="display: none;">Export CSV</button>
+  <table style="width:100%; position: relative;" id="eventsTable">
     <thead>
       <tr>
-        <th style="width: 20%;">ID</th>
-        <th style="width: 5%;">SKU</th>
-        <th style="width: 10%;">Kitchen</th>
-        <th style="width: 5%;">Model</th>
-        <th style="width: 10%;">Confidence</th>
-        <th style="width: 10%;">Model Response</th>
-        <th style="width: 5%;">Action</th>
-        <th style="width: 25%;">Order Image</th>
+        <th style="width: 15%; position: sticky; top: 0;">ID</th>
+        <th style="width: 5%; position: sticky;top: 0;">SKU</th>
+        <th style="width: 10%; position: sticky;top: 0;">Kitchen</th>
+        <th style="width: 5%; position: sticky;top: 0;">Model</th>
+        <th style="width: 5%; position: sticky;top: 0;">Missing</th>
+        <th style="width: 10%; position: sticky;top: 0;">Confidence</th>
+        <th style="width: 10%; position: sticky;top: 0;">Model Response</th>
+        <th style="width: 5%; position: sticky; top: 0;">Action</th>
+        <th style="width: 5%; position: sticky; top: 0;">Event Date</th>
+        <th style="width: 20%; position: sticky;top: 0;">Order Image</th>
         <!-- Add other headers as needed -->
       </tr>
     </thead>
@@ -98,26 +105,17 @@
     ws.onmessage = (event) => {
       const parsedEvent = JSON.parse(event.data);
       if (parsedEvent.type === 'Events' && parsedEvent.content.length > 0) {
-
         const dataChunk = parsedEvent.content;
         // Update table with received data chunk
         updateTable(dataChunk);
+        document.querySelector("#export-button").style.display = "block";
       }
     };
 
     function updateTable(dataChunk) {
       const tableBody = document.getElementById("eventsTable").getElementsByTagName("tbody")[0];
 
-      if (!document.getElementById('exportToCSV')) {
-        const container = document.getElementById("button-cont")
-        const button = document.createElement('button')
-        button.innerText = 'Descargar CSV'
-        button.id = 'exportToCSV'
-        container.appendChild(button)
-      }
-
       dataChunk.forEach(event => {
-        bindExportFunctionality()
         const newRow = tableBody.insertRow();
 
         // Assuming event has fields: id, sku, kitchen, model, confidence, and modelResponse
@@ -125,12 +123,14 @@
         const skuCell = newRow.insertCell(1);
         const kitchenCell = newRow.insertCell(2);
         const modelCell = newRow.insertCell(3);
-        const confidenceCell = newRow.insertCell(4);
-        const modelResponseCell = newRow.insertCell(5);
-        const actionCell = newRow.insertCell(6);
-        const imgCell = newRow.insertCell(7);
+        const missingCell = newRow.insertCell(4)
+        const confidenceCell = newRow.insertCell(5);
+        const modelResponseCell = newRow.insertCell(6);
+        const actionCell = newRow.insertCell(7);
+        const dateCell = newRow.insertCell(8);
+        const imgCell = newRow.insertCell(9);
 
-        const { event_properties } = event
+        const { event_properties, event_time } = event
 
         idCell.textContent = event_properties.universalId;
         idCell.classList.add('id-cell')
@@ -139,16 +139,20 @@
         kitchenCell.textContent = event_properties.deviceKitchenId;
         modelCell.textContent = event_properties.model;
         modelCell.classList.add('model-cell')
+        missingCell.textContent = event_properties.missing;
+        missingCell.classList.add('missing-cell')
         confidenceCell.textContent = event_properties.confidence;
 
-        // Assuming modelResponse is an array of strings; joining them with slashes
         modelResponseCell.textContent = `trained: ${event_properties.trained} \n
           qtModel: ${event_properties.quantityModel} \n
           qtReqModel: ${event_properties.quantityRequested} \n
-          missing: ${event_properties.missing} \n`;
+          ${event_properties.formOption ? `formOption: ${event_properties.formOption}` : ''} 
+          `;
 
         actionCell.textContent = event_properties.action
         actionCell.classList.add('action-cell')
+
+        dateCell.textContent = event_time;
 
         const img = document.createElement('img');
         img.src = `https://images-kos.s3.amazonaws.com/photos_of_the_orders/prod/${event_properties.universalId.replace(/:/g, '_')}/${event_properties.universalId.replace(/:/g, '_')}.jpg`;  // assuming "event.imageURL" holds the URL to your image
@@ -163,7 +167,7 @@
       const idValue = document.getElementById('idFilter').value.toLowerCase();
       const modelValue = document.getElementById('modelFilter').value.toLowerCase();
       const actionValue = document.getElementById('actionFilter').value.toLowerCase();
-
+      const missingValue = document.getElementById('missingFilter').value.toLowerCase();
 
       const rows = document.querySelectorAll('#eventsTable tbody tr');
 
@@ -172,9 +176,9 @@
         const idCell = row.querySelector('.id-cell').textContent.toLowerCase();
         const modelCell = row.querySelector('.model-cell').textContent.toLowerCase();
         const actionCell = row.querySelector('.action-cell').textContent.toLowerCase();
+        const missingCell = row.querySelector('.missing-cell').textContent.toLowerCase();
 
-
-        if (skuCell.includes(skuValue) && idCell.includes(idValue) && modelCell.includes(modelValue) && actionCell.includes(actionValue)) {
+        if (skuCell.includes(skuValue) && idCell.includes(idValue) && modelCell.includes(modelValue) && actionCell.includes(actionValue) && missingCell.includes(missingValue)) {
           row.style.display = "";
         } else {
           row.style.display = "none";
@@ -186,6 +190,8 @@
     document.getElementById('idFilter').addEventListener('input', filterTable);
     document.getElementById('modelFilter').addEventListener('input', filterTable);
     document.getElementById('actionFilter').addEventListener('input', filterTable);
+    document.getElementById('actionFilter').addEventListener('input', filterTable);
+    document.getElementById('missingFilter').addEventListener('input', filterTable);
   </script>
   <script src="/js/exportCSV.js"></script>
 </body>
